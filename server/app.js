@@ -138,6 +138,7 @@ async function createApp() {
     const ownerId = request.query.ownerId || request.currentUser.id;
     const search = request.query.search || "";
 
+    // FIX: Parameterized query prevents SQL inhection and ensures search/ownerId are treated as data, not SQL instructions
     const notes = await db.all(`
       SELECT
         notes.id,
@@ -149,10 +150,11 @@ async function createApp() {
         notes.created_at AS createdAt
       FROM notes
       JOIN users ON users.id = notes.owner_id
-      WHERE notes.owner_id = ${ownerId}
-        AND (notes.title LIKE '%${search}%' OR notes.body LIKE '%${search}%')
+      WHERE notes.owner_id = ?
+        AND (notes.title LIKE ? OR notes.body LIKE ?)
       ORDER BY notes.pinned DESC, notes.id DESC
-    `);
+    `,
+    [ownerId, `%${search}%`, `%${search}%`]);
 
     response.json({ notes });
   });
