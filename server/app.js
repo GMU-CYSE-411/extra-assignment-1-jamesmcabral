@@ -74,6 +74,18 @@ async function createApp() {
     next();
   }
 
+  // FIX: Basic CSRF protection using Origin validation (course-aligned mitigation)
+  function requireSameOrigin(request, response, next) {
+    const origin = request.headers.origin;
+
+    // Allow requests with no origin (like curl/postman) OR same-origin browser requests
+    if (!origin || origin.includes("localhost:3000")) {
+      return next();
+    }
+
+    return response.status(403).json({ error: "CSRF check failed." });
+  }
+
   app.get("/", (_request, response) => sendPublicFile(response, "index.html"));
   app.get("/login", (_request, response) => sendPublicFile(response, "login.html"));
   app.get("/notes", (_request, response) => sendPublicFile(response, "notes.html"));
@@ -168,7 +180,7 @@ async function createApp() {
     response.json({ notes });
   });
 
-  app.post("/api/notes", requireAuth, async (request, response) => {
+  app.post("/api/notes", requireAuth, requireSameOrigin, async (request, response) => {
     // FIX: Ignore client-provided ownerId to prevent unauthorized note creation under other users
     const ownerId = request.currentUser.id;
     const title = String(request.body.title || "");
@@ -210,7 +222,7 @@ async function createApp() {
     response.json({ settings });
   });
 
-  app.post("/api/settings", requireAuth, async (request, response) => {
+  app.post("/api/settings", requireAuth, requireSameOrigin, async (request, response) => {
     // FIX: Enforce ownership via session (prevent modifying other users' settings)
     const userId = request.currentUser.id;
     const displayName = String(request.body.displayName || "");
@@ -227,8 +239,9 @@ async function createApp() {
     response.json({ ok: true });
   });
 
-  app.get("/api/settings/toggle-email", requireAuth, async (request, response) => {
-    const enabled = request.query.enabled === "1" ? 1 : 0;
+  // FIX: Use POST instead of GET for state changes to mitigate CSRF attacks via automatic browser requests
+  app.post("/api/settings/toggle-email", requireAuth, requireSameOrigin, async (request, response) => {
+    const enabled = request.body.enabled === true || request.body.enabled === "1" ? 1 : 0;
 
     await db.run("UPDATE settings SET email_opt_in = ? WHERE user_id = ?", [
       enabled,
