@@ -10,10 +10,21 @@ async function loadSettings(userId) {
   form.elements.theme.value = settings.theme;
   form.elements.statusMessage.value = settings.statusMessage;
   form.elements.emailOptIn.checked = Boolean(settings.emailOptIn);
-  document.getElementById("status-preview").innerHTML = `
-    <p><strong>${settings.displayName}</strong></p>
-    <p>${settings.statusMessage}</p>
-  `;
+  // FIX: Prevent XSS by avoiding innerHTML in settings preview rendering
+  const preview = document.getElementById("status-preview");
+  preview.innerHTML = "";
+
+  const name = document.createElement("p");
+  const strong = document.createElement("strong");
+  strong.textContent = settings.displayName;
+
+  name.appendChild(strong);
+
+  const status = document.createElement("p");
+  status.textContent = settings.statusMessage;
+
+  preview.appendChild(name);
+  preview.appendChild(status);
 
   writeJson("settings-output", settings);
 }
