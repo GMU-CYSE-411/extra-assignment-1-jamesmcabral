@@ -169,7 +169,8 @@ async function createApp() {
   });
 
   app.post("/api/notes", requireAuth, async (request, response) => {
-    const ownerId = Number(request.body.ownerId || request.currentUser.id);
+    // FIX: Ignore client-provided ownerId to prevent unauthorized note creation under other users
+    const ownerId = request.currentUser.id;
     const title = String(request.body.title || "");
     const body = String(request.body.body || "");
     const pinned = request.body.pinned ? 1 : 0;
@@ -186,7 +187,8 @@ async function createApp() {
   });
 
   app.get("/api/settings", requireAuth, async (request, response) => {
-    const userId = Number(request.query.userId || request.currentUser.id);
+    // FIX: Enforce ownership via session (prevent reading other users' settings)
+    const userId = request.currentUser.id;
 
     const settings = await db.get(
       `
@@ -209,7 +211,8 @@ async function createApp() {
   });
 
   app.post("/api/settings", requireAuth, async (request, response) => {
-    const userId = Number(request.body.userId || request.currentUser.id);
+    // FIX: Enforce ownership via session (prevent modifying other users' settings)
+    const userId = request.currentUser.id;
     const displayName = String(request.body.displayName || "");
     const statusMessage = String(request.body.statusMessage || "");
     const theme = String(request.body.theme || "classic");
@@ -239,7 +242,12 @@ async function createApp() {
     });
   });
 
-  app.get("/api/admin/users", requireAuth, async (_request, response) => {
+  // FIX: Enforce server-side authorization so only admin users can access administrative data
+  app.get("/api/admin/users", requireAuth, async (request, response) => {
+    if (request.currentUser.role !== "admin") {
+      return response.status(403).json({ error: "Admin access required." });
+    }
+    
     const users = await db.all(`
       SELECT
         users.id,
