@@ -102,16 +102,25 @@ async function createApp() {
       return;
     }
 
-    const sessionId = request.cookies.sid || createSessionId();
+    // FIX: Always generate a fresh session on login to prevent session fixation
+    const sessionId = createSessionId();
 
-    await db.run("DELETE FROM sessions WHERE id = ?", [sessionId]);
+    // Optional cleanup of old session if it exists
+    if (request.cookies.sid) {
+      await db.run("DELETE FROM sessions WHERE id = ?", [request.cookies.sid]);
+    }
+
     await db.run(
       "INSERT INTO sessions (id, user_id, created_at) VALUES (?, ?, ?)",
       [sessionId, user.id, new Date().toISOString()]
     );
 
+    // FIX: Harden session cookie to prevent session theft via XSS/CSRF
     response.cookie("sid", sessionId, {
-      path: "/"
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax"
+      // secure: true // enable in production (HTTPS)
     });
 
     response.json({
