@@ -15,19 +15,36 @@
     }
 
     const result = await api("/api/admin/users");
-    document.getElementById("admin-users").innerHTML = result.users
-      .map(
-        (entry) => `
-          <tr>
-            <td>${entry.id}</td>
-            <td>${entry.username}</td>
-            <td>${entry.role}</td>
-            <td>${entry.displayName}</td>
-            <td>${entry.noteCount}</td>
-          </tr>
-        `
-      )
-      .join("");
+    // FIX: Prevent XSS by avoiding innerHTML and using safe DOM construction
+    const tbody = document.getElementById("admin-users");
+    tbody.innerHTML = "";
+
+    for (const entry of result.users) {
+      const row = document.createElement("tr");
+
+      const id = document.createElement("td");
+      id.textContent = entry.id;
+
+      const username = document.createElement("td");
+      username.textContent = entry.username;
+
+      const role = document.createElement("td");
+      role.textContent = entry.role;
+
+      const displayName = document.createElement("td");
+      displayName.textContent = entry.displayName;
+
+      const noteCount = document.createElement("td");
+      noteCount.textContent = entry.noteCount;
+
+      row.appendChild(id);
+      row.appendChild(username);
+      row.applendChild(role);
+      row.appendChild(displayName);
+      row.appendChild(noteCount);
+
+      tbody.appendChild(row);
+    }
   } catch (error) {
     document.getElementById("admin-warning").textContent = error.message;
   }
