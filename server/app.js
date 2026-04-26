@@ -91,9 +91,11 @@ async function createApp() {
     const query = `
       SELECT id, username, role, display_name
       FROM users
-      WHERE username = '${username}' AND password = '${password}'
+      WHERE username = ? AND password = ?
     `;
-    const user = await db.get(query);
+
+    // FIX: Parameterized query prevents SQL injection by separating data from SQL instructions
+    const user = await db.get(query, [username, password]);
 
     if (!user) {
       response.status(401).json({ error: "Invalid username or password." });
